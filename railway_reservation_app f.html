@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Railway Reservation & Waiting List Management System</title>
+<style>
+  :root{
+    --ink:#12213a; --rail:#243b63; --brass:#c9953c;
+    --free:#1f8a70; --booked:#b83a4b; --wait:#d98a1c;
+    --glass:#bfe3f5; --paper:#e8ecf2; --card:#fff; --gray:#667085; --line:#d5dce7;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family:'Bahnschrift','DIN Alternate','Segoe UI',system-ui,sans-serif;
+  }
+  header{
+    background:var(--ink); color:#fff; padding:22px 24px 18px;
+    border-bottom:5px solid var(--brass);
+  }
+  .head-in{max-width:1100px;margin:0 auto;display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:space-between;}
+  h1{margin:0;font-size:25px;font-weight:700;letter-spacing:.3px;}
+  .sub{font-size:13px;color:#9fb0cc;margin-top:4px;}
+  .board{display:flex;gap:10px;}
+  .board div{
+    background:#0b1527;border:1px solid #2a4068;border-radius:8px;
+    padding:6px 14px;text-align:center;min-width:76px;
+  }
+  .board b{display:block;font-size:24px;color:var(--brass);font-variant-numeric:tabular-nums;}
+  .board span{font-size:11px;color:#9fb0cc;}
+
+  main{max-width:1100px;margin:24px auto 0;padding:0 16px;display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:22px;align-items:start;}
+  @media (max-width:880px){ main{grid-template-columns:1fr;} }
+  .card{background:var(--card);border-radius:14px;box-shadow:0 4px 18px rgba(18,33,58,.09);padding:20px;}
+  h2{font-size:16px;margin:0 0 12px;}
+
+  .toolbar{display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between;margin-bottom:14px;}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--gray);}
+  .legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:-1px;}
+  .toggle{font-size:13px;display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none;}
+
+  /* coach */
+  .coach{
+    background:linear-gradient(#eef2f8,#e1e8f2);
+    border:4px solid var(--rail); border-radius:46px;
+    padding:30px 14px 26px; max-width:430px; margin:0 auto;
+  }
+  .coach-end{text-align:center;font-size:11px;color:var(--gray);margin:-14px 0 10px;}
+  .coach-end.bottom{margin:12px 0 -10px;}
+  .row{
+    display:grid; grid-template-columns:10px 1fr 1fr 22px 1fr 1fr 10px;
+    gap:8px; align-items:center; margin-bottom:10px;
+  }
+  .pane{height:44px;border-radius:3px;background:var(--glass);border:1px solid #8fc3de;}
+  .pane.lit{background:#ffe08a;border-color:var(--brass);box-shadow:0 0 8px var(--brass);}
+  .aisle{height:100%;border-left:2px dashed #b8c4d6;margin:0 auto;}
+
+  .seat{
+    position:relative; width:100%; height:62px; margin:0; padding:6px 2px 0;
+    border:2px solid transparent; border-bottom:7px solid rgba(0,0,0,.25);
+    border-radius:12px 12px 8px 8px; background:var(--free); color:#fff;
+    font-family:inherit; cursor:pointer; text-align:center;
+    transition:background .25s ease, transform .12s ease;
+  }
+  .seat:hover{transform:translateY(-2px);}
+  .seat.booked{background:var(--booked);}
+  .seat.selected{border-color:var(--brass);box-shadow:0 0 0 3px rgba(201,149,60,.45);}
+  .seat.dim{opacity:.35;}
+  .seat.found{animation:pulse 1s ease 3;}
+  @keyframes pulse{50%{transform:scale(1.12);}}
+  .seat:focus-visible{outline:3px solid var(--brass);outline-offset:2px;}
+  .seat .lbl{display:block;font-weight:700;font-size:14px;}
+  .seat .who{display:block;font-size:10.5px;opacity:.95;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 2px;}
+  .seat .wl{
+    position:absolute;top:-9px;right:-7px;background:var(--wait);color:#fff;
+    font-size:11px;font-weight:700;border-radius:10px;padding:1px 7px;border:2px solid #fff;
+  }
+  .seat .win{position:absolute;top:3px;left:5px;font-size:10px;}
+
+  /* controls */
+  .ticket{border-top:6px solid var(--brass);}
+  label{display:block;font-size:12.5px;color:var(--gray);margin:0 0 5px;}
+  input[type=text], input[type=number], select{
+    width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;
+    font-size:14px;font-family:inherit;margin-bottom:12px;background:#fff;color:var(--ink);
+  }
+  input:focus, select:focus{outline:2px solid var(--rail);outline-offset:1px;}
+  .chips{display:flex;gap:8px;margin-bottom:14px;}
+  .chips input{position:absolute;opacity:0;}
+  .chips label{
+    flex:1;text-align:center;margin:0;padding:8px 4px;border:1px solid var(--line);
+    border-radius:20px;font-size:13px;cursor:pointer;color:var(--ink);
+  }
+  .chips input:checked + label{background:var(--rail);color:#fff;border-color:var(--rail);}
+  .chips input:focus-visible + label{outline:2px solid var(--brass);outline-offset:2px;}
+  .picked{
+    font-size:14px;margin-bottom:12px;padding:10px 12px;border-radius:8px;
+    background:var(--paper);border-left:4px solid var(--rail);
+  }
+  .btn{
+    width:100%;padding:11px;border:none;border-radius:8px;font-size:14px;font-weight:700;
+    font-family:inherit;cursor:pointer;margin-bottom:9px;transition:opacity .15s;
+  }
+  .btn:disabled{opacity:.45;cursor:not-allowed;}
+  .btn:hover:not(:disabled){opacity:.88;}
+  .b-book{background:var(--rail);color:#fff;}
+  .b-auto{background:var(--brass);color:#fff;}
+  .b-cancel{background:var(--booked);color:#fff;}
+  .b-ticket{background:#21886f;color:#fff;}
+  .b-ghost{background:var(--paper);color:var(--ink);}
+  .b-logout{width:auto;margin:0;background:transparent;color:#fff;border:1px solid #536789;padding:8px 12px}
+  .route-fields{display:grid;grid-template-columns:1fr 1fr;gap:10px}.route-fields input{min-width:0}
+  #loginScreen{min-height:100vh;display:grid;place-items:center;padding:24px;background:radial-gradient(ellipse at top left,#314c73 0,#12213a 48%,#0b1527 100%)}
+  .login-card{width:min(420px,100%);padding:32px;border-radius:20px;background:#fff;box-shadow:0 24px 70px rgba(0,0,0,.28);border-top:6px solid var(--brass)}
+  .login-card .brand{font-size:13px;letter-spacing:1.4px;color:var(--gray);font-weight:800;text-transform:uppercase}
+  .login-card h1{margin:10px 0 7px;font-size:26px;color:var(--ink)}.login-card p{font-size:13px;line-height:1.55;color:var(--gray);margin:0 0 20px}
+  .login-card label{font-weight:700;color:var(--ink);margin:0 0 6px}.login-card input{width:100%;padding:12px;border:1px solid var(--line);border-radius:9px;font:inherit;margin:0 0 14px}
+  .login-note{padding:10px 12px;border-radius:8px;background:#f4f6f8;font-size:11px!important;margin:12px 0 0!important}
+  [hidden]{display:none!important}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .perf{border:none;border-top:2px dashed var(--line);margin:8px 0 14px;}
+
+  .find{display:flex;gap:8px;}
+  .find input{margin:0;}
+  .find .btn{width:auto;margin:0;padding:10px 14px;}
+
+  .detail{font-size:14px;margin-top:14px;padding-top:14px;border-top:2px dashed var(--line);}
+  .detail ol{margin:6px 0 0;padding-left:0;list-style:none;}
+  .detail li{display:flex;justify-content:space-between;align-items:center;padding:5px 8px;background:var(--paper);border-radius:6px;margin-bottom:4px;}
+  .detail li button{border:none;background:none;color:var(--booked);font-weight:700;cursor:pointer;font-size:12px;}
+  .tag{font-size:11px;padding:2px 8px;border-radius:10px;background:var(--glass);color:var(--ink);margin-left:6px;}
+
+  .wide{max-width:1100px;margin:22px auto 0;padding:0 16px;}
+  .log{list-style:none;margin:0;padding:0;max-height:180px;overflow-y:auto;font-size:13px;}
+  .log li{padding:7px 10px;border-bottom:1px solid #eef1f6;}
+  .log li.sys{color:var(--gray);font-style:italic;}
+  footer{max-width:760px;margin:24px auto 50px;padding:0 16px;font-size:12px;color:var(--gray);text-align:center;}
+  @media (prefers-reduced-motion:reduce){ .seat,.seat:hover,.seat.found{transition:none;animation:none;transform:none;} }
+.coach-switch{display:flex;align-items:center;gap:9px;margin:-4px 0 14px}.coach-hint{font-size:11px;color:var(--gray)}.coach-switch label{margin:0;font-size:12px;font-weight:700;color:var(--gray)}.coach-switch select{width:auto;min-width:130px;margin:0;padding:8px 11px}.coach-switch .btn{width:auto;min-height:38px;padding:8px 13px;margin:0;font-size:12px}@media(max-width:560px){.coach-switch{flex-wrap:wrap}.coach-switch label{width:100%}.coach-switch select{flex:1}}
+.coach-chooser{padding:13px 14px;margin:-3px 0 16px;background:#f5f7f3;border:1px solid #e2e8df;border-radius:13px}.coach-chooser-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}.coach-chooser-head b{display:block;font-size:13px;color:var(--ink)}.coach-chooser-head span{display:block;font-size:11px;color:var(--gray);margin-top:2px}.coach-chooser-head .btn{width:auto;min-height:36px;padding:7px 11px;margin:0;font-size:12px}.coach-cards{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 5px}.coach-option{flex:0 0 150px;text-align:left;padding:10px 12px;border:1px solid #dce4dc;border-radius:10px;background:white;color:var(--ink);font:inherit;cursor:pointer;transition:.15s}.coach-option:hover{border-color:#6c9c86;transform:translateY(-1px)}.coach-option.active{border:2px solid var(--rail);background:#edf5ef;box-shadow:0 2px 8px rgba(29,59,48,.1);padding:9px 11px}.coach-option strong{display:block;font-size:13px}.coach-option span{display:block;font-size:10px;color:var(--gray);margin-top:4px;white-space:nowrap}.ticket-intro{font-size:12px;color:var(--gray);line-height:1.5;margin:0 0 12px}.coach-dialog{width:min(430px,calc(100vw - 32px));border:0;border-radius:18px;padding:23px;background:#fffefa;color:var(--ink);box-shadow:0 24px 75px rgba(10,25,20,.3)}.coach-dialog::backdrop{background:rgba(12,28,23,.55);backdrop-filter:blur(3px)}.dialog-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px}.dialog-top span{font-size:9px;font-weight:800;letter-spacing:1.7px;color:var(--gray)}.dialog-top h2{font-size:21px;margin:5px 0}.dialog-top p{font-size:12px;color:var(--gray);margin:0}.dialog-top>button{border:0;background:#eff3ed;border-radius:50%;width:32px;height:32px;font-size:22px;cursor:pointer}.coach-dialog label{display:block;font-size:12px;font-weight:650;color:#53645a;margin-bottom:5px}.coach-dialog input{width:100%;min-height:43px;padding:10px;border:1px solid var(--line);border-radius:9px;margin-bottom:13px;font:inherit}.coach-dialog .two{gap:10px}.dialog-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:4px}.dialog-actions .btn{width:auto;padding:10px 15px;margin:0}
+/* Reference seat tile: rounded green block with a centered chair and clear label */
+.seat{height:86px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;padding:7px 3px 5px;border-radius:19px;background:#19834a;border:0;border-bottom:0;box-shadow:none;color:#fff;transition:transform .14s,filter .14s,box-shadow .14s}.seat.booked{background:#bf4650}.seat.selected{outline:3px solid var(--brass);outline-offset:2px;box-shadow:0 0 0 5px rgba(201,149,60,.2)}.seat:hover{transform:translateY(-2px);filter:brightness(1.06);box-shadow:0 5px 12px rgba(15,54,33,.18)}.seat .lbl{font-size:13px;line-height:1.1}.seat .chair-icon{display:block;width:39px;height:41px;flex:none}.seat .who{max-width:100%;font-size:9px;line-height:1.1}.seat .win{top:4px;left:5px}.seat .wl{top:-7px;right:-6px}.seat.dim{opacity:.35}@media(max-width:560px){.seat{height:69px;border-radius:15px;gap:0;padding:6px 2px 4px}.seat .lbl{font-size:11px}.seat .chair-icon{width:32px;height:34px}.seat .who{font-size:8px}.seat .win{top:3px;left:3px;font-size:8px}}
+.coach-door{display:flex;align-items:center;justify-content:center;gap:7px;margin:-3px 0 9px;color:#526e61;font-size:8px;font-weight:800;letter-spacing:1.5px}.door-panel{position:relative;width:26px;height:13px;border:2px solid #315d50;border-bottom:0;border-radius:7px 7px 0 0;background:#dae8de}.door-panel:after{content:'';position:absolute;right:3px;top:4px;width:2px;height:2px;border-radius:50%;background:#315d50}.access-toggle{display:flex;align-items:center;gap:8px;padding:9px 11px;margin:2px 0 12px;background:#eef7f7;border:1px solid #d2e9e9;border-radius:9px;font-size:12px;color:#345c61}.access-toggle input{accent-color:#168e9b}.seat.access-seat{box-shadow:inset 0 0 0 2px #82dce3}.seat .access-mark{position:absolute;top:3px;right:4px;display:grid;place-items:center;width:15px;height:15px;border-radius:50%;background:#d6f4f5;color:#147c8b;font-size:10px;line-height:1}.access-note{margin-top:5px;color:#33717a;font-size:12px;font-weight:600}.access-help{margin:-7px 0 12px 3px;color:#53747a;font-size:10px;line-height:1.4}.accessible-tag{background:#d9f2f3;color:#126c78}
+.access-help{margin:-7px 0 12px 3px;color:#53747a;font-size:10px;line-height:1.4}.accessible-tag{background:#d9f2f3;color:#126c78}
+/* Platform-side entrance with priority seats immediately beside it */
+.row{grid-template-columns:24px 1fr 1fr 24px 1fr 1fr 10px;gap:7px}.coach-side-door{position:relative;align-self:center;width:22px;height:72px;margin-left:-7px;border:2px solid #315d50;border-left:5px solid #315d50;border-radius:3px 8px 8px 3px;background:linear-gradient(90deg,#d3e4d8,#edf3ec);box-shadow:2px 0 0 rgba(49,93,80,.14)}.coach-side-door:before{content:'';position:absolute;right:-13px;top:13px;width:12px;height:40px;border:2px solid #315d50;border-left:0;border-radius:0 5px 5px 0;background:#d9e9dc;transform:skewY(-8deg)}.coach-side-door:after{content:'PLATFORM DOOR';position:absolute;left:-25px;top:50%;transform:translate(-100%,-50%);writing-mode:vertical-rl;white-space:nowrap;color:#536f60;font-size:7px;font-weight:800;letter-spacing:1px}.coach{overflow:visible}.coach:before{z-index:0}@media(max-width:560px){.row{grid-template-columns:18px 1fr 1fr 20px 1fr 1fr 7px;gap:4px}.coach-side-door{width:18px;height:62px;margin-left:-6px}.coach-side-door:before{right:-10px;width:9px;height:34px;top:12px}.coach-side-door:after{left:-20px;font-size:6px}}
+</style>
+</head>
+<body>
+
+<section id="loginScreen" aria-label="Passenger sign in">
+  <form class="login-card" id="loginForm">
+    <div class="brand">🚆 Railway Reservation</div>
+    <h1>Passenger sign in</h1>
+    <p>Sign in to choose your journey, view the three available coaches, and book a seat.</p>
+    <label for="loginEmail">Email</label><input type="email" id="loginEmail" required autocomplete="username" placeholder="you@example.com">
+    <label for="loginPassword">Password</label><input type="password" id="loginPassword" required autocomplete="current-password" placeholder="Enter any password for this demo">
+    <button class="btn b-book" type="submit">Sign in</button>
+    <p class="login-note">Demo sign-in only: this self-contained app does not verify accounts or store passwords. Real secure login needs a server and database.</p>
+  </form>
+</section>
+<div id="appShell" hidden>
+
+<header>
+  <div class="head-in">
+    <div>
+      <h1>🚆 Railway Reservation &amp; Waiting List Management</h1>
+      <div class="sub">BE23CS404 Data Structures and Algorithms &middot; one FIFO queue per seat</div>
+    </div>
+    <div class="board" aria-live="polite">
+      <div><b id="nFree">0</b><span>Free</span></div>
+      <div><b id="nBooked">0</b><span>Booked</span></div>
+      <div><b id="nWait">0</b><span>Waiting</span></div>
+      <button class="btn b-logout" type="button" id="logoutBtn">Sign out</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section class="card">
+    <div class="toolbar">
+      <h2 style="margin:0">Choose coach & seat</h2>
+      <label class="toggle"><input type="checkbox" id="winOnly"> Highlight window seats</label>
+    </div>
+    <div class="coach-chooser">
+      <div class="coach-chooser-head"><div><b>Choose your coach</b><span>Three coaches are available. Select one to view its seats.</span></div></div>
+      <div class="coach-cards" id="coachCards" aria-label="Available coaches"></div>
+    </div>
+    <div class="legend" style="margin-bottom:16px">
+      <span><i style="background:var(--free)"></i>Free</span>
+      <span><i style="background:var(--booked)"></i>Booked</span>
+      <span><i style="background:var(--wait)"></i>Waiting count</span>
+      <span><i style="background:var(--glass)"></i>Window (A, D)</span>
+      <span><i style="background:#55b8ce"></i>Accessible priority seat</span>
+    </div>
+    <div class="coach">
+      <div class="coach-end">Engine end</div>
+      <div id="rows"></div>
+      <div class="coach-end bottom">Rear end</div>
+    </div>
+    <div class="detail" id="detail"></div>
+  </section>
+
+  <aside class="card ticket">
+    <h2>Book / cancel ticket</h2>
+
+    <p class="ticket-intro">Choose a coach, select a seat on the map, and enter the passenger name.</p>
+    <hr class="perf">
+
+    <label for="nameInput">Passenger name</label>
+    <input type="text" id="nameInput" placeholder="e.g. Alice" autocomplete="off">
+
+    <div class="route-fields">
+      <div><label for="tripFrom">From</label><input type="text" id="tripFrom" list="stations" placeholder="Starting station" required></div>
+      <div><label for="tripTo">To</label><input type="text" id="tripTo" list="stations" placeholder="Destination" required></div>
+    </div>
+    <datalist id="stations"><option>Chennai</option><option>Bengaluru</option><option>Coimbatore</option><option>Madurai</option><option>Hyderabad</option><option>Mumbai</option><option>Delhi</option><option>Kochi</option><option>Vijayawada</option><option>Tiruchirappalli</option></datalist>
+
+    <label>Seat preference (for auto-assign)</label>
+    <div class="chips" role="radiogroup">
+      <input type="radio" name="pref" id="pWin" value="window" checked><label for="pWin">Window</label>
+      <input type="radio" name="pref" id="pAisle" value="aisle"><label for="pAisle">Aisle</label>
+      <input type="radio" name="pref" id="pAny" value="any"><label for="pAny">Any</label>
+    </div>
+
+    <label class="access-toggle"><input type="checkbox" id="accessNeed"> Passenger needs accessible seating</label>
+    <div class="access-help">Accessible seats are beside the platform-side door. Auto-assign selects them first when this is checked.</div>
+    <div class="picked" id="picked">Click a seat to select it.</div>
+
+    <button class="btn b-book" id="bookBtn">Book selected seat</button>
+    <button class="btn b-auto" id="autoBtn">Auto-assign by preference</button>
+    <button class="btn b-cancel" id="cancelBtn" disabled>Cancel selected seat</button>
+    <button class="btn b-ticket" id="downloadTicketBtn" disabled>Download confirmed ticket (PDF)</button>
+    <hr class="perf">
+
+    <label for="findInput">Check passenger status</label>
+    <div class="find">
+      <input type="text" id="findInput" placeholder="Passenger name">
+      <button class="btn b-ghost" id="findBtn">Check</button>
+    </div>
+    <button class="btn b-ghost" id="resetBtn" style="margin-top:12px">Reset all</button>
+  </aside>
+</main>
+
+<div class="wide">
+  <section class="card">
+    <h2>Activity log</h2>
+    <ul class="log" id="log"><li class="sys">System ready. Pick a seat or use auto-assign to begin.</li></ul>
+  </section>
+</div>
+
+<footer>
+  Logic: a free seat confirms the passenger immediately; a taken seat adds them to that seat's waiting
+  queue (first in, first out) until it is full. Cancelling a seat promotes the passenger at the front
+  of its queue. Window seats are columns A and D; B and C sit on the aisle.
+</footer>
+</div>
+
+<script>
+  // seats[i] = { label, window, passenger, queue[] }  (queue = FIFO waiting list)
+  let seats = [], coaches = [], activeCoachId = 1, selected = null, maxWait = 3, foundIdx = null, journeys = {};
+
+  const $ = id => document.getElementById(id);
+  const rowsEl = $('rows'), nameInput = $('nameInput'), findInput = $('findInput');
+  const cancelBtn = $('cancelBtn'), logEl = $('log');
+
+  function esc(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  function addLog(m){ const li = document.createElement('li'); li.textContent = m; logEl.prepend(li); }
+  const seatName = i => seats[i].label + (seats[i].window ? ' (window)' : ' (aisle)');
+  const pref = () => document.querySelector('input[name=pref]:checked').value;
+
+  function coachPrefix(id){
+    let label='';
+    while(id>0){ id--; label=String.fromCharCode(65+(id%26))+label; id=Math.floor(id/26); }
+    return label || 'A';
+  }
+  function makeSeats(n, coachId=1){
+    const prefix=coachPrefix(coachId);
+    return Array.from({length:n}, (_, i) => {
+      const c=i%4;
+      return {label:prefix+(i+1),window:(c===0 || c===3),accessible:(i<2),passenger:null,queue:[]};
+    });
+  }
+  function syncActiveCoach(){
+    const coach = coaches.find(c => c.id === activeCoachId);
+    if(coach){ coach.seats = seats; coach.maxWait = maxWait; }
+  }
+  function updateCoachPicker(){
+    const cards=$('coachCards'); if(!cards) return;
+    cards.innerHTML=coaches.map(c => {
+      const free=c.seats.filter(s => !s.passenger).length;
+      const waiting=c.seats.reduce((total,s) => total+s.queue.length,0);
+      return '<button type="button" class="coach-option' + (c.id===activeCoachId?' active':'') + '" data-coach="' + c.id + '" aria-pressed="' + (c.id===activeCoachId) + '"><strong>' + esc(c.name) + '</strong><span>' + free + ' free of ' + c.seats.length + ' seats · ' + waiting + ' waiting</span></button>';
+    }).join('');
+    cards.querySelectorAll('button[data-coach]').forEach(button => button.onclick=() => activateCoach(button.dataset.coach));
+  }
+  function activateCoach(id){
+    syncActiveCoach();
+    const coach = coaches.find(c => c.id === Number(id));
+    if(!coach) return;
+    activeCoachId = coach.id; seats = coach.seats; maxWait = coach.maxWait;
+    selected = null; foundIdx = null; updateCoachPicker(); render();
+  }
+  function initSeats(){
+    maxWait=3; coaches=[1,2,3].map(id=>({id,name:'Coach '+String.fromCharCode(64+id),seats:makeSeats(16,id),maxWait:3}));
+    activeCoachId=1; seats=coaches[0].seats; selected=null; foundIdx=null; journeys={};
+    syncActiveCoach();
+  }
+
+  const STORAGE_KEY = 'railwayReservationStateV1';
+  function validSeats(list, limit, coachId=1){
+    return Array.isArray(list) && list.length>=4 && list.length<=100 && list.every((s,i) => {
+      const c=i%4, current=coachPrefix(coachId)+(i+1), legacy=(Math.floor(i/4)+1)+'ABCD'[c];
+      return s && (s.label===current || s.label===legacy) && s.window===(c===0 || c===3) &&
+        (s.passenger===null || typeof s.passenger==='string') && Array.isArray(s.queue) &&
+        s.queue.length<=limit && s.queue.every(n => typeof n==='string');
+    });
+  }
+  function restoreSavedState(){
+    try {
+      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+      if(!saved) return false;
+      if(Array.isArray(saved.coaches)){
+        if(!saved.coaches.length || !saved.coaches.every(c => c && Number.isInteger(c.id) && typeof c.name === 'string' && Number.isInteger(c.maxWait) && c.maxWait >= 1 && c.maxWait <= 20 && validSeats(c.seats,c.maxWait,c.id))) return false;
+        coaches = saved.coaches.slice(0,3).map((c,index) => ({id:index+1,name:'Coach '+String.fromCharCode(65+index),seats:c.seats.map((s,i) => ({label:coachPrefix(index+1)+(i+1),window:s.window,accessible:(i<2),passenger:s.passenger,queue:s.queue.slice()})),maxWait:c.maxWait}));
+      } else if(Number.isInteger(saved.maxWait) && saved.maxWait >= 1 && saved.maxWait <= 20 && validSeats(saved.seats,saved.maxWait,1)){
+        coaches = [{id:1,name:'Coach A',seats:saved.seats.map((s,i) => ({label:coachPrefix(1)+(i+1),window:s.window,accessible:(i<2),passenger:s.passenger,queue:s.queue.slice()})),maxWait:saved.maxWait}];
+      } else return false;
+      while(coaches.length<3){const id=coaches.length+1;coaches.push({id,name:'Coach '+String.fromCharCode(64+id),seats:makeSeats(16,id),maxWait:3});}
+      coaches=coaches.map((c,index)=>({...c,id:index+1,name:'Coach '+String.fromCharCode(65+index)}));
+      activeCoachId=Number.isInteger(saved.activeCoachId)&&saved.activeCoachId>=1&&saved.activeCoachId<=3?saved.activeCoachId:1;
+      journeys=saved.journeys&&typeof saved.journeys==='object'&&!Array.isArray(saved.journeys)?saved.journeys:{};
+      const active = coaches.find(c => c.id === activeCoachId);
+      seats = active.seats; maxWait = active.maxWait;
+      selected=null; foundIdx=null;
+      return true;
+    } catch(e) { return false; }
+  }
+  function saveState(){
+    try { syncActiveCoach(); localStorage.setItem(STORAGE_KEY, JSON.stringify({version:3,coaches,activeCoachId,journeys})); }
+    catch(e) { /* Storage may be unavailable in private or restricted browser modes. */ }
+  }
+  const journeyKey=name=>String(name).trim().toLowerCase();
+  function seatBtn(i){
+    const s=seats[i], b=document.createElement('button');
+    b.type='button';
+    b.className='seat' + (s.passenger?' booked':'') + (i===selected?' selected':'') + (i===foundIdx?' found':'') + (s.accessible?' access-seat':'') + ($('winOnly').checked && !s.window?' dim':'');
+    b.setAttribute('aria-label','Seat ' + s.label + (s.window?' window':' aisle') + (s.accessible?', accessible priority seat':'') + ', ' + (s.passenger?'booked by ' + s.passenger:'free') + (s.queue.length?', ' + s.queue.length + ' waiting':''));
+    if(s.window){ const w=document.createElement('span'); w.className='win'; w.textContent='🪟'; b.appendChild(w); }
+    if(s.accessible){ const a=document.createElement('span'); a.className='access-mark'; a.textContent='♿'; a.title='Accessible priority seat'; b.appendChild(a); }
+    const label=document.createElement('span'); label.className='lbl'; label.textContent=s.label; b.appendChild(label);
+    const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+    svg.setAttribute('class','chair-icon'); svg.setAttribute('viewBox','0 0 40 42'); svg.setAttribute('aria-hidden','true');
+    const shapes=[['M8 4 13 3 20 22 14 24Z','#68c9df'],['M13 6 16 7 22 21 19 22Z','#a0e3ed'],['M14 20 33 20 35 26 16 26Z','#9be3ed'],['M16 26 35 26 35 33 16 33Q13 33 13 30L13 28Q13 26 16 26Z','#4db6d1'],['M17 33 35 33 34 36 17 36Z','#8d829f']];
+    shapes.forEach(([d,fill]) => { const path=document.createElementNS('http://www.w3.org/2000/svg','path'); path.setAttribute('d',d); path.setAttribute('fill',fill); svg.appendChild(path); });
+    b.appendChild(svg);
+    const who=document.createElement('span'); who.className='who'; who.textContent=s.passenger || 'Free'; b.appendChild(who);
+    if(s.queue.length){ const q=document.createElement('span'); q.className='wl'; q.textContent=s.queue.length; b.appendChild(q); }
+    b.onclick=() => { selected=i; foundIdx=null; render(); };
+    return b;
+  }
+
+  function render(){
+    saveState();
+    updateCoachPicker();
+    rowsEl.innerHTML = '';
+    for(let r = 0; r < Math.ceil(seats.length / 4); r++){
+      const row = document.createElement('div'); row.className = 'row';
+      const lit = $('winOnly').checked;
+      const mk = (cls) => { const d = document.createElement('div'); d.className = cls; return d; };
+      const cell = i => i < seats.length ? seatBtn(i) : mk('');
+      row.appendChild(mk(r===0 ? 'coach-side-door' : 'pane' + (lit ? ' lit' : '')));
+      row.appendChild(cell(r*4)); row.appendChild(cell(r*4+1));
+      row.appendChild(mk('aisle'));
+      row.appendChild(cell(r*4+2)); row.appendChild(cell(r*4+3));
+      row.appendChild(mk('pane' + (lit ? ' lit' : '')));
+      rowsEl.appendChild(row);
+    }
+
+    const booked = seats.filter(s => s.passenger).length;
+    $('nBooked').textContent = booked;
+    $('nFree').textContent = seats.length - booked;
+    $('nWait').textContent = seats.reduce((t, s) => t + s.queue.length, 0);
+    $('downloadTicketBtn').disabled = selected === null || !seats[selected]?.passenger;
+
+    const det = $('detail');
+    if(selected === null){
+      $('picked').textContent = 'Click a seat to select it.';
+      det.innerHTML = '<b>Seat details</b><div style="color:var(--gray);margin-top:4px">No seat selected.</div>';
+      cancelBtn.disabled = true;
+      return;
+    }
+    const s = seats[selected];
+    $('picked').textContent = 'Selected: seat ' + seatName(selected) + ' - ' + (s.passenger ? 'booked' : 'free');
+    cancelBtn.disabled = !s.passenger;
+    let h = '<b>Seat ' + s.label + '</b><span class="tag">' + (s.window ? 'Window' : 'Aisle') + '</span>' +
+      '<div style="margin:6px 0">' + (s.passenger ? 'Passenger: <b>' + esc(s.passenger) + '</b>' : 'This seat is free.') + '</div>' +
+      '<div>Waiting list (' + s.queue.length + '/' + maxWait + ')' + (s.queue.length ? '' : ': empty') + '</div>';
+    if(s.queue.length){
+      h += '<ol>' + s.queue.map((n, k) =>
+        '<li><span>' + (k+1) + '. ' + esc(n) + '</span><button data-k="' + k + '">Leave queue</button></li>').join('') + '</ol>';
+    }
+    det.innerHTML = h;
+    det.querySelectorAll('button[data-k]').forEach(btn => btn.onclick = () => {
+      const k = +btn.dataset.k, name = s.queue.splice(k, 1)[0];
+      delete journeys[journeyKey(name)];
+      addLog(name + ' left the waiting list of seat ' + s.label + '.'); render();
+    });
+  }
+
+  function getName(el){
+    const n = el.value.trim();
+    if(!n) addLog('Please enter a passenger name first.');
+    return n;
+  }
+  function getJourney(){
+    const from=$('tripFrom').value.trim(),to=$('tripTo').value.trim();
+    if(!from){$('tripFrom').reportValidity();addLog('Enter the starting station first.');return null;}
+    if(!to){$('tripTo').reportValidity();addLog('Enter the destination station first.');return null;}
+    if(from.toLowerCase()===to.toLowerCase()){$('tripTo').setCustomValidity('Choose a destination different from the starting station.');$('tripTo').reportValidity();$('tripTo').setCustomValidity('');addLog('Starting station and destination must be different.');return null;}
+    return {from,to};
+  }
+
+  function downloadConfirmedTicket(){
+    if(selected===null || !seats[selected]?.passenger){ addLog('Select a confirmed seat before downloading its ticket.'); return; }
+    const seat=seats[selected], coach=coaches.find(c=>c.id===activeCoachId), journey=journeys[journeyKey(seat.passenger)]||{from:'Not recorded',to:'Not recorded'};
+    const clean=value=>String(value).normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[^\x20-\x7E]/g,'?');
+    const escPdf=value=>clean(value).replace(/([\\()])/g,'\\$1');
+    const ref='RR-'+Date.now().toString(36).toUpperCase()+'-'+Math.random().toString(36).slice(2,7).toUpperCase();
+    const issued=new Date().toLocaleString();
+    const cmds=[];
+    const rect=(x,y,w,h,color)=>cmds.push(`${color} rg ${x} ${y} ${w} ${h} re f`);
+    const line=(x1,y1,x2,y2,color,width=1)=>cmds.push(`${color} RG ${width} w ${x1} ${y1} m ${x2} ${y2} l S`);
+    const txt=(x,y,size,text,color='0.07 0.13 0.23')=>cmds.push(`BT /F1 ${size} Tf ${color} rg ${x} ${y} Td (${escPdf(text)}) Tj ET`);
+    rect(0,0,720,360,'0.96 0.97 0.96');
+    rect(22,22,676,316,'1 1 1');
+    rect(22,250,676,88,'0.07 0.13 0.23');
+    rect(22,244,676,6,'0.79 0.58 0.23');
+    txt(48,304,11,'RAILWAY RESERVATION  /  PASSENGER COPY','0.75 0.83 0.92');
+    txt(48,274,22,'RESERVATION CONFIRMED','1 1 1');
+    txt(48,211,10,'PASSENGER','0.40 0.45 0.51');
+    txt(48,185,18,seat.passenger);
+    txt(374,211,10,'COACH','0.40 0.45 0.51');
+    txt(374,185,18,coach?.name || ('Coach '+activeCoachId));
+    line(48,164,672,164,'0.82 0.85 0.88');
+    txt(48,145,10,'FROM','0.40 0.45 0.51'); txt(48,124,15,journey.from);
+    txt(374,145,10,'TO','0.40 0.45 0.51'); txt(374,124,15,journey.to);
+    txt(48,96,10,'SEAT','0.40 0.45 0.51'); txt(48,76,17,seat.label);
+    txt(222,96,10,'SEAT TYPE','0.40 0.45 0.51'); txt(222,76,14,seat.window?'Window':'Aisle');
+    txt(422,96,10,'ACCESSIBILITY','0.40 0.45 0.51'); txt(422,76,12,seat.accessible?'Priority seat':'Standard seat');
+    line(48,58,672,58,'0.82 0.85 0.88');
+    txt(48,40,9,'BOOKING REFERENCE  '+ref,'0.07 0.13 0.23');
+    txt(424,40,9,'ISSUED  '+issued,'0.07 0.13 0.23');
+    txt(48,25,8,'Demo reservation confirmation generated by this browser app.','0.40 0.45 0.51');
+    const stream=cmds.join('\n')+'\n';
+    const objects=[
+      '<< /Type /Catalog /Pages 2 0 R >>',
+      '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+      '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 720 360] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>',
+      '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>',
+      `<< /Length ${stream.length} >>\nstream\n${stream}endstream`
+    ];
+    let pdf='%PDF-1.4\n%RRDEMO\n'; const offsets=[0];
+    objects.forEach((obj,i)=>{ offsets.push(pdf.length); pdf+=`${i+1} 0 obj\n${obj}\nendobj\n`; });
+    const xref=pdf.length; pdf+=`xref\n0 ${objects.length+1}\n0000000000 65535 f \n`;
+    for(let i=1;i<offsets.length;i++) pdf+=String(offsets[i]).padStart(10,'0')+' 00000 n \n';
+    pdf+=`trailer\n<< /Size ${objects.length+1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
+    const url=URL.createObjectURL(new Blob([pdf],{type:'application/pdf'}));
+    const a=document.createElement('a'); a.href=url; a.download=`Railway-Ticket-${clean(seat.label)}.pdf`; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+    addLog('Confirmed ticket downloaded for '+seat.passenger+' ('+ref+').');
+  }
+  function nameInUse(name){
+    const l = name.toLowerCase();
+    return coaches.some(c => c.seats.some(s => (s.passenger && s.passenger.toLowerCase() === l) || s.queue.some(q => q.toLowerCase() === l)));
+  }
+
+  function place(i, name, journey){
+    const s = seats[i];
+    if(!s.passenger){
+      s.passenger = name;
+      journeys[journeyKey(name)]=journey;
+      addLog('Ticket CONFIRMED for ' + name + ' on seat ' + seatName(i) + '.');
+      return true;
+    } else if(s.queue.length < maxWait){
+      s.queue.push(name);
+      journeys[journeyKey(name)]=journey;
+      addLog('Seat ' + s.label + ' is taken. ' + name + ' added to WAITING LIST (position ' + s.queue.length + ').');
+      return true;
+    } else {
+      addLog('Seat ' + s.label + ' and its waiting list are full. Could not add ' + name + '.');
+      return false;
+    }
+  }
+
+  function bookSelected(){
+    const name=getName(nameInput); if(!name) return;
+    const journey=getJourney(); if(!journey) return;
+    if(selected===null){ addLog('Select a seat first, or use auto-assign.'); return; }
+    if(nameInUse(name)){ addLog(name + ' already has a booking or is on a waiting list.'); return; }
+    const regularFree=seats.some(s => !s.accessible && !s.passenger);
+    if(seats[selected].accessible && !$('accessNeed').checked && regularFree){
+      addLog('Accessible priority seats are held for passengers who need them while standard seats are free.'); return;
+    }
+    if(place(selected,name,journey)) nameInput.value=''; render();
+  }
+
+  // Auto-assign: free seat matching preference -> any free seat -> shortest queue (preferred type first)
+  function autoAssign(){
+    const name=getName(nameInput); if(!name) return;
+    const journey=getJourney(); if(!journey) return;
+    if(nameInUse(name)){ addLog(name + ' already has a booking or is on a waiting list.'); return; }
+    const priority=$('accessNeed').checked, p=pref(), all=seats.map((_,i)=>i);
+    const accessible=all.filter(i => seats[i].accessible), standard=all.filter(i => !seats[i].accessible);
+    const matches=i => p==='any' || (p==='window')===seats[i].window;
+    let idx;
+    if(priority){
+      idx=accessible.find(i => !seats[i].passenger);
+      if(idx===undefined){ idx=all.find(i => !seats[i].passenger); if(idx!==undefined) addLog('Accessible seats are in use. Assigning the next free seat for ' + name + '.'); }
+    } else {
+      idx=standard.find(i => !seats[i].passenger && matches(i));
+      if(idx===undefined) idx=standard.find(i => !seats[i].passenger);
+      if(idx===undefined) idx=all.find(i => !seats[i].passenger && matches(i));
+      if(idx===undefined) idx=all.find(i => !seats[i].passenger);
+    }
+    if(idx===undefined){
+      const shortest=list=>list.filter(i => seats[i].queue.length<maxWait).sort((a,b)=>seats[a].queue.length-seats[b].queue.length)[0];
+      if(priority){ idx=shortest(accessible); if(idx===undefined) idx=shortest(all); }
+      else { idx=shortest(standard); if(idx===undefined) idx=shortest(all); }
+    }
+    if(idx===undefined) addLog('Coach is completely full. Could not add ' + name + '.');
+    else { selected=idx; if(place(idx,name,journey)) nameInput.value=''; }
+    render();
+  }
+
+  function cancelSelected(){
+    if(selected === null) return;
+    const s = seats[selected];
+    if(!s.passenger){ addLog('No one has booked seat ' + s.label + ' yet.'); return; }
+    const cancelledName=s.passenger; addLog('Cancelling ticket for ' + cancelledName + ' on seat ' + s.label + '.');
+    delete journeys[journeyKey(cancelledName)];
+    s.passenger = s.queue.length ? s.queue.shift() : null;
+    if(s.passenger) addLog(s.passenger + ' promoted from waiting list to CONFIRMED on seat ' + s.label + '.');
+    render();
+  }
+
+  function findPassenger(){
+    const name = getName(findInput); if(!name) return;
+    const l = name.toLowerCase();
+    for(const coach of coaches){
+      const confirmed = coach.seats.findIndex(s => s.passenger && s.passenger.toLowerCase() === l);
+      const waitingSeat = confirmed < 0 ? coach.seats.findIndex(s => s.queue.some(q => q.toLowerCase() === l)) : -1;
+      if(confirmed < 0 && waitingSeat < 0) continue;
+      if(coach.id !== activeCoachId) activateCoach(coach.id);
+      if(confirmed >= 0){
+        selected=confirmed; foundIdx=confirmed;
+        addLog(coach.name + ': ' + coach.seats[confirmed].passenger + ' is CONFIRMED on seat ' + seatName(confirmed) + '.');
+      } else {
+        const k=seats[waitingSeat].queue.findIndex(q => q.toLowerCase() === l);
+        selected=waitingSeat; foundIdx=waitingSeat;
+        addLog(coach.name + ': ' + seats[waitingSeat].queue[k] + ' is WAITING at position ' + (k+1) + ' for seat ' + seatName(waitingSeat) + '.');
+      }
+      render(); return;
+    }
+    addLog('No booking found for ' + name + ' in any coach.');
+  }
+
+  function resetAll(){
+    coaches.forEach(c => { c.seats = makeSeats(c.seats.length,c.id); });
+    const active = coaches.find(c => c.id === activeCoachId);
+    seats = active.seats; maxWait = active.maxWait; selected=null; foundIdx=null;
+    journeys={};
+    logEl.innerHTML = '<li class="sys">All coaches and waiting lists were reset.</li>';
+    render();
+  }
+
+  $('bookBtn').onclick = bookSelected;
+  $('autoBtn').onclick = autoAssign;
+  cancelBtn.onclick = cancelSelected;
+  $('downloadTicketBtn').onclick = downloadConfirmedTicket;
+  $('findBtn').onclick = findPassenger;
+  $('resetBtn').onclick = resetAll;
+  $('winOnly').onchange = render;
+  nameInput.addEventListener('keydown', e => { if(e.key === 'Enter') bookSelected(); });
+  findInput.addEventListener('keydown', e => { if(e.key === 'Enter') findPassenger(); });
+
+  const loginScreen=$('loginScreen'), appShell=$('appShell');
+  try { const signedIn=sessionStorage.getItem('railwayDemoUser'); loginScreen.hidden=!!signedIn; appShell.hidden=!signedIn; }
+  catch(e) { loginScreen.hidden=false; appShell.hidden=true; }
+  $('loginForm').addEventListener('submit',event=>{
+    event.preventDefault();
+    const email=$('loginEmail').value.trim();
+    if(!$('loginForm').reportValidity()) return;
+    try { sessionStorage.setItem('railwayDemoUser',email); }
+    catch(e) { /* The demo sign-in remains active for this page view. */ }
+    loginScreen.hidden=true; appShell.hidden=false;
+  });
+  $('logoutBtn').onclick=()=>{
+    try { sessionStorage.removeItem('railwayDemoUser'); } catch(e) {}
+    appShell.hidden=true; loginScreen.hidden=false; $('loginPassword').value=''; $('loginEmail').focus();
+  };
+
+  if(!restoreSavedState()) initSeats();
+  render();
+  if(coaches.some(c => c.seats.some(s => s.passenger || s.queue.length))) addLog('Saved reservations restored from this browser.');
+</script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
